@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html style="font-family: Arial, Helvetica, sans-serif;">
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+    <title>SCP:SL Broadcast/Color generator</title>
+</head>
+
+<body>
+    <h1 style="font-size: 30px;">SCP:SL Broadcast/Color generator</h1>
+    <p class="preview" id="preview">PREVIEW</p>
+    <p class="output" id="output">OUTPUT</p>
+    <button onclick="addButton()">Add text section</button>
+    <div class="tooltip">
+        <button onclick="copy()" onmouseout="outFunc()">
+            <span class="tooltiptext" id="myTooltip">Copy broadcast</span>
+            Copy to clipboard
+        </button>
+    </div>
+    <button onclick="save(false)">Save</button>
+    <button onclick="save(true)">Save as file</button>
+    <button onclick="load(false)">Load</button>
+    <input type="file" id="file-selector" accept=".scpsl">
+    <input type="number" id="time" onchange="generate()" value="10"><label for="time"> Time in seconds</label>
+    <button onclick="reset()">Reset</button>
+    <input type="checkbox" id="mode" onchange="if (mode == 0) { mode = 1 } else {mode = 0} generate()"><label for="mode">Mode</label>
+    <p><a href="./index.html">Back</a></p>
+    <div id="inputs"></div>
+</body>
+<style>
+    .output {
+        background-color: #98bbaaa8;
+        width: 97.8%;
+        height: auto;
+        text-align: center;
+        padding: 20px;
+        margin-left: 0px;
+        font-family: "Roboto", sans-serif;
+    }
+
+    .preview {
+        background-color: #dcaeaea8;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        white-space: -moz-pre-wrap;
+        white-space: -pre-wrap;
+        white-space: -o-pre-wrap;
+        word-wrap: break-word;
+        width: 97.8%;
+        height: auto;
+        text-align: center;
+        padding: 20px;
+        padding-bottom: 30px;
+        margin-left: 0px;
+        font-family: "Roboto", sans-serif;
+    }
+
+    .tooltip {
+        position: relative;
+        display: inline-block;
+    }
+
+    .tooltip .tooltiptext {
+        visibility: hidden;
+        width: 140px;
+        background-color: #555;
+        color: #fff;
+        text-align: center;
+        border-radius: 6px;
+        padding: 5px;
+        position: absolute;
+        z-index: 1;
+        bottom: 150%;
+        left: 50%;
+        margin-left: -75px;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+
+    .tooltip .tooltiptext::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        margin-left: -5px;
+        border-width: 5px;
+        border-style: solid;
+        border-color: #555 transparent transparent transparent;
+    }
+
+    .tooltip:hover .tooltiptext {
+        visibility: visible;
+        opacity: 1;
+    }
+</style>
+<script>
+    let version = "1.0.1"
+    let mode = 0
+    let sections = 0
+    let validSections = []
+    let allSections = [
+        "text-input-",
+        "color-",
+        "bold-",
+        "italic-",
+        "number-"
+    ]
+    let sectionArr = []
+    let genText = ""
+
+    const fileSelector = document.getElementById('file-selector');
+    fileSelector.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) {
+            return;
+        }
+        try {
+            let reader = new FileReader();
+            reader.readAsText(file, "UTF-8");
+            reader.onload = function(evt) {
+                try {
+                    load(true, JSON.parse(evt.target.result))
+                } catch (error) {
+                    document.getElementById("preview").innerHTML = "<b>ERROR PARSING FILE</b>"
+                }
+            }
+            reader.onerror = function(evt) {
+                document.getElementById("preview").innerHTML = "<b>ERROR READING FILE</b>"
+            }
+        } catch (error) {
+            document.getElementById("preview").innerHTML = "<b>ERROR</b>"
+            console.log(error)
+        }
+    });
+
+    function addButton() {
+        sections++
+        let id = document.getElementById("inputs")
+        let content = `<div id="${sections}"><input type="color" id="color-${sections}" onchange="generatePreview()" value="#ffffff"/><input type="text" oninput="generatePreview()" id="text-input-${sections}" placeholder="Text..."><input type="checkbox" onclick="generatePreview()" id="bold-${sections}"><label for="bold-${sections}">BOLD</label><input type="checkbox" onclick="generatePreview()" id="italic-${sections}"><label for="italic-${sections}">ITALIC</label><input type="number" id="number-${sections}" placeholder="Size..." onchange="generatePreview()" value="45"><button onclick="remove(${sections});generatePreview()">Remove</button><br></div>`
+        id.insertAdjacentHTML("afterbegin", content)
+
+        validSections.push(sections)
+    }
+
+    function reset() {
+        document.getElementById("output").innerHTML = "OUTPUT<br>"
+        document.getElementById("preview").innerHTML = "PREVIEW<br>"
+        document.getElementById("inputs").innerHTML = ""
+        sections = 0
+        validSections = []
+        genText = ""
+    }
+
+    function remove(id) {
+        document.getElementById(id).outerHTML = ""
+        let index = validSections.indexOf(id);
+        if (index !== -1) {
+            sections - 1
+            sectionArr.splice(index,1)
+            validSections.splice(index, 1);
+        }
+    }
+
+    function download(filename, text) {
+        let element = document.createElement('a');
+        element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+        element.setAttribute('download', filename);
+
+        element.style.display = 'none';
+        document.body.appendChild(element);
+
+        element.click();
+
+        document.body.removeChild(element);
+    }
+
+
+    function save(fileSafe) {
+        let json = {
+            "version": version,
+            "validSections": validSections,
+            "sections": sections,
+            "inputs": document.getElementById("inputs").outerHTML,
+            "sectionArr": JSON.stringify(sectionArr)
+        }
+        if (fileSafe) {
+            download(`broadcast.scpsl`, JSON.stringify(json))
+        }
+        localStorage.setItem("validSections", validSections)
+        localStorage.setItem("sections", sections)
+        localStorage.setItem("inputs", document.getElementById("inputs").outerHTML)
+        localStorage.setItem("sectionArr", JSON.stringify(sectionArr))
+    }
+
+    function load(fromFile, file) {
+        reset()
+        try {
+            if (fromFile) {
+                if (file.version != version) {
+                    document.getElementById("preview").innerHTML = "<b>VERSION MISSMATCH</b>"
+                    return;
+                }
+            }
+            document.getElementById("output").innerHTML = "OUTPUT<br>"
+            document.getElementById("preview").innerHTML = "PREVIEW<br>"
+            if (fromFile) {
+                document.getElementById("inputs").innerHTML = file.inputs
+                sectionArr = JSON.parse(file.sectionArr)
+                sections = file.sections
+                validSections = file.validSections
+            } else {
+                document.getElementById("inputs").innerHTML = localStorage.getItem("inputs")
+                sectionArr = JSON.parse(localStorage.getItem("sectionArr"))
+                sections = localStorage.getItem("sections")
+                validSections = localStorage.getItem("validSections")
+            }
+
+            genText = ""
+            sectionArr.forEach(elementP => {
+                allSections.forEach(element => {
+                    let curElement = document.getElementById(`${element}${elementP.id}`)
+
+                    if (element == "text-input-") {
+                        document.getElementById(`${element}${elementP.id}`).value = elementP.text
+                    }
+
+                    if (element == "bold-") {
+                        if (elementP.bold) curElement.checked = true
+                    }
+
+                    if (element == "italic-") {
+                        if (elementP.italic) curElement.checked = true
+                    }
+                    if (element == "color-") {
+                        let color = elementP.color
+                        if (color != "default") {
+                            curElement.value = color
+                        }
+                    }
+                    if (element == "number-") {
+                        let size = elementP.size
+                        if (size != 45) {
+                            curElement.value = size
+                        }
+                    }
+
+                });
+            });
+            if (fromFile) {
+                validSections = file.validSections
+                sections = parseInt(file.sections)
+            } else {
+                validSections = localStorage.getItem("validSections").split(",")
+                sections = parseInt(localStorage.getItem("sections"))
+            }
+
+            generatePreview()
+        } catch (error) {
+            document.getElementById("preview").innerHTML = "<b>ERROR DURING LOAD</b>"
+            console.error(error)
+        }
+
+    }
+
+    function generate() {
+        let time = document.getElementById("time").value
+        let text = ""
+        if (mode == 1) {
+            genText = ""
+            text = `OUTPUT<br><pre style="font-family: \'Roboto\', sans-serif;overflow-x: auto;white-space: pre-wrap;white-space: -moz-pre-wrap;white-space: -pre-wrap;white-space: -o-pre-wrap;word-wrap: break-word;">`
+        } else {
+            genText = `bc ${time} `
+            text = `OUTPUT<br><pre style="font-family: \'Roboto\', sans-serif;overflow-x: auto;white-space: pre-wrap;white-space: -moz-pre-wrap;white-space: -pre-wrap;white-space: -o-pre-wrap;word-wrap: break-word;">bc ${time} `
+        }
+        let curElement
+        let textCache
+        validSections.forEach(elementP => {
+            textCache = ""
+            let num = 0
+            allSections.forEach(element => {
+                curElement = document.getElementById(`${element}${elementP}`)
+
+                if (element == "text-input-") textCache = curElement.value
+
+                if (element == "bold-") {
+                    if (curElement.checked) textCache = "<b>" + textCache + "</b>"
+                }
+                if (element == "italic-") {
+                    if (curElement.checked) textCache = "<i>" + textCache + "</i>"
+                }
+                if (element == "color-") {
+                    let color = curElement.value
+                    if (color != "#ffffff") {
+                        if (mode == 1) {
+                            textCache = `<color=${color}>${textCache}</color>`
+                        } else {
+                            textCache = `<color="${color}">${textCache}</color>`
+                        }
+                    }
+                }
+                if (element == "number-") {
+                    let size = curElement.value
+                    if (size != 45) {
+                        textCache = `<size="${size}">${textCache}</size>`
+                    }
+                }
+                num++
+                if (num == allSections.length) {
+                    genText += textCache
+                    text += textCache.replaceAll("<", "&lt;")
+                    document.getElementById("output").innerHTML = `` + text + "</pre>"
+                }
+            });
+        });
+    }
+
+    function generatePreview() {
+        sectionArr = []
+        let text = "PREVIEW<br><span style=\"color:#ffffff\">"
+        let curElement
+        let textCache
+        validSections.forEach(elementP => {
+            textCache = ""
+            let num = 0
+            let mainobj = {
+                "bold": false,
+                "italic": false,
+                "color": "default",
+                "size": 45,
+                "text": "",
+                "id": elementP
+            }
+            allSections.forEach(element => {
+
+                curElement = document.getElementById(`${element}${elementP}`)
+
+                if (element == "text-input-") {
+                    textCache = curElement.value
+                    mainobj.text = curElement.value
+                }
+
+                if (element == "bold-") {
+                    if (curElement.checked) {
+                        textCache = "<b>" + textCache + "</b>"
+                        mainobj.bold = true
+                    }
+                }
+
+                if (element == "italic-") {
+                    if (curElement.checked) {
+                        textCache = "<i>" + textCache + "</i>"
+                        mainobj.italic = true
+                    }
+                }
+
+                if (element == "color-") {
+                    let color = curElement.value
+                    if (color != "#ffffff") {
+                        textCache = `<span style="color:${color}">${textCache}</span>`
+                        mainobj.color = color
+                    }
+                }
+                if (element == "number-") {
+                    let size = curElement.value
+                    mainobj.size = size
+                    textCache = `<span style="font-size: ${size}px">${textCache}</span>`
+                }
+                num++
+                if (num == allSections.length) {
+                    sectionArr.push(mainobj)
+                    text += textCache
+                    document.getElementById("preview").innerHTML = text + "</span>"
+                }
+            });
+        });
+        generate()
+    }
+
+    function copy() {
+        let tooltip = document.getElementById("myTooltip");
+        navigator.clipboard.writeText(genText).then(function() {
+            tooltip.innerHTML = "Copied Broadcast"
+        }, function(err) {
+            tooltip.innerHTML `Could not copy text:\n${err}`
+        });
+
+    }
+
+    function outFunc() {
+        let tooltip = document.getElementById("myTooltip");
+        tooltip.innerHTML = "Copy to clipboard";
+    }
+</script>
+
+</html>
