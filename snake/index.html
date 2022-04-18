@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+   <head>
+        <meta charset='utf-8'>
+        <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+        <title>Snake</title>
+        <meta name='viewport' content='width=device-width, initial-scale=1'>
+        <link rel='stylesheet' type='text/css' media='screen' href='main.css'>
+        <script src='main.js'></script>
+   </head>
+   <body onload="start()">
+      <div class="main">
+         <canvas id="canvas" width="500" height="500">
+         </canvas>
+         <br>
+         <button onclick="pause()">Pause</button>
+         <button onclick="generateApple(document.getElementById('amount').value)">Generate apple(s)</button>
+         <input type="number" id="amount" value="1" name="numberInput" required size="10">
+         <button onclick="deleteTail()">Delete last point</button>
+         <button onclick="toggleImortal()">Toggle imortality</button>
+         <button onclick="dead = true">Kill</button>
+         <br>
+         <button onclick="moveOneStep = true">Move one step</button>
+         <button onclick="timeBetweenMoves = document.getElementById('amount2').value">Update time between moves</button>
+         <input type="number" id="amount2" value="200" name="numberInput" required size="10">
+         <button onclick="dead = false">Revive</button>
+         <p><a href="../index.html">Back</a></p>
+         <br>
+         <b id="status">STAUTS: </b>
+      </div>
+   </body>
+</html>
