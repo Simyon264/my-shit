@@ -7,6 +7,7 @@ let currentCords = []
 let dead = false;
 let localCopy = [];
 let moveOneStep = false
+let lastDir = "";
 
 let imortal = false;
 
@@ -78,6 +79,7 @@ function hasDuplicates(array) {
 }
 
 function move(posXMove, posYMove) {
+    lastDir = curDirection
     localCopy = [];
 
     for (let i = 0; i < currentCords.length; i++)
@@ -235,22 +237,22 @@ async function start() {
         switch (event.key) {
             case "ArrowDown":
                 restart()
-                if (curDirection == oposites.down) break;
+                if (lastDir == oposites.down) break;
                 curDirection = "down"
                 break;
             case "ArrowUp":
                 restart()
-                if (curDirection == oposites.up) break;
+                if (lastDir == oposites.up) break;
                 curDirection = "up"
                 break;
             case "ArrowLeft":
                 restart()
-                if (curDirection == oposites.left) break;
+                if (lastDir == oposites.left) break;
                 curDirection = "left"
                 break;
             case "ArrowRight":
                 restart()
-                if (curDirection == oposites.right) break;
+                if (lastDir == oposites.right) break;
                 curDirection = "right"
                 break;
             default:
